@@ -1,10 +1,19 @@
 import subprocess
 import time
+import argparse
+
+parser = argparse.ArgumentParser(description='Benchmark Terraform S3 bucket deployment')
+parser.add_argument('-v', '--verbose', action='store_true', help='Show detailed Terraform output')
+args = parser.parse_args()
 
 working_dir = "/mnt/c/Users/Marko/Desktop/thesis/s3_script"
 
-#terraform initialize
+def vprint(message):
+    if args.verbose:
+        print(message)
 
+#terraform initialize
+vprint("Initializing Terraform...")
 tf_init = subprocess.run(
     ['terraform', 'init'], 
     cwd = working_dir,
@@ -17,7 +26,7 @@ if tf_init.returncode != 0:
     print(tf_init.stderr)
     exit(1)
 else:
-    print("Terraform initialized successfully")
+    vprint("Terraform initialized successfully")
 
 print ("Applying Terraform configuration...")
 start_time = time.time()
@@ -40,10 +49,21 @@ if tf_apply_process.returncode != 0:
     exit(1)
 else:
     print(f"S3 bucket deployed successfully in {deploy_time:.2f} seconds")
-    print(tf_apply_process.stdout)
+    if args.verbose:
+        print(tf_apply_process.stdout)
+    else:
+        bucket_name = None
+        bucket_region = None
+        for line in tf_apply_process.stdout.split('\n'):
+            if "bucket_name" in line:
+                bucket_name = line.strip()
+            if "bucket_region" in line:
+                bucket_region = line.strip()
+
+        if bucket_name and bucket_region:
+            print(f"Created: {bucket_name}, {bucket_region}")
 
 #terraform destroy
-
 print("Cleaning up resources...")
 start_cleanup_time = time.time()
 
@@ -63,5 +83,12 @@ if tf_destroy_process.returncode != 0:
     exit(1)
 else:
     print(f"Resources cleaned up successfully in {cleanup_time:.2f} seconds")
-    print(tf_destroy_process.stdout) #possibly filter the output so only main information is displayed
-    # and catch any errors, if they appear, and log them
+    if args.verbose:
+        print(tf_destroy_process.stdout)
+
+print("\nBenchmark Summary:")
+print(f"Deployment Time: {deploy_time:.2f} seconds")
+print(f"Cleanup Time: {cleanup_time:.2f} seconds")
+print(f"Total Operation Time: {deploy_time + cleanup_time:.2f} seconds")
+
+#make it reusable and adaptable to other resources, not just s3_bucket
