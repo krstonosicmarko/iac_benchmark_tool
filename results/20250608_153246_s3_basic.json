@@ -1,0 +1,14 @@
+{
+  "scenario": "s3_basic",
+  "timestamp": "2025-06-08T15:32:46.097982",
+  "deploy_time": 12.95332145690918,
+  "cleanup_time": 14.141684532165527,
+  "total_time": 27.095005989074707,
+  "date": "2025-06-08",
+  "time": "15:32:46",
+  "metadata": {
+    "bucket_name": "\u001b[0mbucket_name = \"s3-bucket-benchmark-mk-23042025\"",
+    "bucket_region": "bucket_region = \"eu-north-1\"",
+    "terraform_init_time": "measured_separately_if_needed"
+  }
+}
