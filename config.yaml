@@ -1,0 +1,14 @@
+scenarios:
+  s3_basic:
+    description: "Single S3 bucket deployment"
+    expected_outputs:
+      - test-bucket-mk
+      - eu-north-1
+  
+  multi_resource:
+    description: "S3 bucket + EC2 instance"
+    expected_outputs:
+      - test-bucket-mk
+      - eu-north-1
+      - (known after execution)
+      - (known after execution)
