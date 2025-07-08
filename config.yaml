@@ -5,10 +5,28 @@ scenarios:
       - test-bucket-mk
       - eu-north-1
   
-  multi_resource:
-    description: "S3 bucket + EC2 instance"
+  ec2_basic:
+    description: "Single EC2 instance deployment"
     expected_outputs:
-      - test-bucket-mk
-      - eu-north-1
-      - (known after execution)
-      - (known after execution)
+      - instance_id (known after execution)
+      - instance_public_ip (known after execution)
+
+  vpc_basic:
+    description: "VPC with single private subnet"
+    expected_outputs:
+      - vpc_id
+      - vpc_cidr
+      - subnet_id
+      - subnet_cidr
+
+  iam_role_basic:
+    description: "iam_role basic deployment with basic policy and no permissions"
+    expected_outputs:
+      - role_name
+      - role_arn
+
+  dynamodb_basic:
+    description: "DynamoDB basic empty database with simple primary key"
+    expected_outputs:
+      - table_name
+      - table_arn
