@@ -71,13 +71,52 @@ def parse_tf_outputs(terraform_output):
 
     return outputs
 
+def validate_outputs(outputs, scenario_name, config):
+    """Validate that received outputs match expected outputs from YAML config"""
+    expected = config['scenarios'][scenario_name]['expected_outputs']
+
+    missing = []
+    for expected_output in expected:
+        if expected_output not in outputs:
+            missing.append(expected_output)
+    
+    unexpected = []
+    for actual_output in outputs:
+        if actual_output not in expected:
+            unexpected.append(actual_output)
+
+    if missing:
+        print(f"Missing expected outputs: {missing}")
+    if unexpected:
+        print(f"Unexpected outputs found: {unexpected}")
+
+    validation_passed = len(missing) == 0
+    return validation_passed, missing, unexpected
+
+def verify_cleanup_success(destroy_output, expected_resource_count):
+    """Verify that terraform destroy actually worked"""
+    
+    if "Destroy complete!" not in destroy_output:
+        return False, "Terraform destroy did not report success"
+
+    destroyed_count = destroy_output.count("Destruction complete")
+    if destroyed_count != expected_resource_count:
+        return False, f"Expected {expected_resource_count} resources destroyed, got {destroyed_count}"
+    
+    return True, "Cleanup verified successful"
+
 vprint("Initializing Terraform...")
+init_start_time = time.time()
+
 tf_init = subprocess.run(
     ['terraform', 'init'], 
     cwd = working_dir,
     capture_output = True,
     text = True
 )
+
+init_end_time = time.time()
+init_time = init_end_time - init_start_time
 
 if tf_init.returncode != 0:
     print("Terraform initialization failed:")
@@ -87,7 +126,7 @@ else:
     vprint("Terraform initialized successfully")
 
 print ("Applying Terraform configuration...")
-start_time = time.time()
+apply_start_time = time.time()
 
 tf_apply_process = subprocess.run(
     ['terraform', 'apply', '-auto-approve'],
@@ -96,30 +135,29 @@ tf_apply_process = subprocess.run(
     text = True
 )
 
-end_time = time.time()
-deploy_time = end_time - start_time
+apply_end_time = time.time()
+apply_time = apply_end_time - apply_start_time
 
 if tf_apply_process.returncode != 0:
     print("Terraform apply failed:")
     print(tf_apply_process.stderr)
     exit(1)
 else:
-    print(f"Selected resources deployed successfully in {deploy_time:.2f} seconds")
+    print(f"Selected resources deployed successfully in {apply_time:.2f} seconds")
     if args.verbose:
         print(tf_apply_process.stdout)
-    else:
-        bucket_name = None
-        bucket_region = None
         
-        outputs = parse_tf_outputs(tf_apply_process.stdout)
+outputs = parse_tf_outputs(tf_apply_process.stdout)
 
-        if outputs:
-            print("Created resources: ")
-            for name, value in outputs.items():
-                print(f" {name}: {value}")
+validation_passed, missing, unexpected = validate_outputs(outputs, scenario_name, config)
+
+if outputs:
+    print("Created resources: ")
+    for name, value in outputs.items():
+        print(f" {name}: {value}")
 
 print("Cleaning up resources...")
-start_cleanup_time = time.time()
+destroy_start_time = time.time()
 
 tf_destroy_process = subprocess.run(
     ['terraform', 'destroy', '-auto-approve'],
@@ -128,20 +166,46 @@ tf_destroy_process = subprocess.run(
     text = True
 )
 
-end_cleanup_time = time.time()
-cleanup_time = end_cleanup_time - start_cleanup_time
-total_operation_time = deploy_time + cleanup_time
+destroy_end_time = time.time()    
+destroy_time = destroy_end_time - destroy_start_time
+total_operation_time = init_time + apply_time + destroy_time
+
+if tf_apply_process.returncode == 0 and tf_destroy_process.returncode != 0:
+    print("CRITICAL: Resources deployed but cleanup failed!")
+    print("Manual cleanup required in AWS console")
+    print("Check AWS console for orphaned resources")
 
 if tf_destroy_process.returncode != 0:
     print("Terraform destroy failed:")
     print(tf_destroy_process.stderr)
     exit(1)
 else:
-    print(f"Resources cleaned up successfully in {cleanup_time:.2f} seconds")
+    print(f"Resources cleaned up successfully in {destroy_time:.2f} seconds")
+
+    cleanup_verified, cleanup_message = verify_cleanup_success(tf_destroy_process.stdout, len(outputs))
+    
+    if not cleanup_verified:
+        print(f"CLEANUP WARNING: {cleanup_message}")
+        print("Manual verification recommended in AWS console")
+    else:
+        print("Cleanup verification passed")
+
     if args.verbose:
         print(tf_destroy_process.stdout)
 
-log_result(scenario_name, deploy_time, cleanup_time, {
+
+log_result(scenario_name, apply_time, destroy_time, {
     "outputs": outputs,
-    "resource_count": len(outputs)
+    "resource_count": len(outputs),
+    "validation_passed": validation_passed,    
+    "missing_outputs": missing,                
+    "unexpected_outputs": unexpected,
+    "cleanup_verified": cleanup_verified,
+    "cleanup_message": cleanup_message,
+    "timing_breakdown": {                 
+        "init_time": init_time,
+        "apply_time": apply_time,
+        "destroy_time": destroy_time,
+        "total_time": init_time + apply_time + destroy_time
+    }
 })
