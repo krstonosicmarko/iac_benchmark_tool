@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "eu-north-1"
+  region = "eu-central-1"
 }
 
 resource "aws_dynamodb_table" "dynamodb-table-basic" {

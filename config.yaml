@@ -1,15 +1,42 @@
 scenarios:
   s3_basic:
-    description: "Single S3 bucket deployment"
+    description: "S3 basic buckets"
+    allowed_counts: [1, 10, 25]
     expected_outputs:
-      - test-bucket-mk
-      - eu-north-1
+      - bucket_names
+      - bucket_count
+      - bucket_region
+    tools: [terraform, boto3]
+
+  s3_complex:
+    description: "S3 buckets with versioning and encryption"
+    allowed_counts: [1, 10]
+    expected_outputs:
+      - bucket_names
+      - bucket_count
+      - bucket_region
+      - features_enabled
+    tools: [terraform, boto3] 
   
   ec2_basic:
-    description: "Single EC2 instance deployment"
+    description: "EC2 basic instances"
+    allowed_counts: [1, 10, 25]
     expected_outputs:
-      - instance_id (known after execution)
-      - instance_public_ip (known after execution)
+      - instance_ids
+      - instance_count
+      - instance_public_ips
+    tools: [terraform, boto3]
+
+  ec2_complex:
+    description: "EC2 instances with security group"
+    allowed_counts: [1, 10]
+    expected_outputs:
+      - instance_ids
+      - instance_count
+      - instance_public_ips
+      - security_group_id
+      - features_enabled
+    tools: [terraform, boto3]
 
   vpc_basic:
     description: "VPC with single private subnet"
@@ -18,15 +45,40 @@ scenarios:
       - vpc_cidr
       - subnet_id
       - subnet_cidr
+    tools: [terraform, boto3]
+
+  vpc_complex:
+    description: "VPC with 2 subnets and internet gateway"
+    expected_outputs:
+      - vpc_id
+      - vpc_cidr
+      - internet_gateway_id
+      - subnet_1_id
+      - subnet_1_cidr
+      - subnet_2_id
+      - subnet_2_cidr
+    tools: [terraform, boto3]
 
   iam_role_basic:
-    description: "iam_role basic deployment with basic policy and no permissions"
+    description: "IAM role basic deployment with basic policy and no permissions"
     expected_outputs:
       - role_name
       - role_arn
+    tools: [terraform, boto3]
+
+  iam_complex:
+    description: "IAM role with custom policy and instance profile"
+    expected_outputs:
+      - role_name
+      - role_arn
+      - policy_name
+      - policy_arn
+      - instance_profile_name
+    tools: [terraform, boto3]
 
   dynamodb_basic:
     description: "DynamoDB basic empty database with simple primary key"
     expected_outputs:
       - table_name
       - table_arn
+    tools: [terraform, boto3]

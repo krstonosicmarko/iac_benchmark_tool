@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "eu-north-1"
+  region = "eu-central-1"
 }
 
 resource "aws_vpc" "vpc-basic" {
@@ -15,7 +15,7 @@ resource "aws_vpc" "vpc-basic" {
 resource "aws_subnet" "vpc-basic" {
   vpc_id                  = aws_vpc.vpc-basic.id
   cidr_block              = "10.0.1.0/24"
-  availability_zone       = "eu-north-1a"
+  availability_zone       = "eu-central-1a"
   
   tags = {
     Name = "benchmark-subnet-basic"
