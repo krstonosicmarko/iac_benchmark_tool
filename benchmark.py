@@ -6,6 +6,7 @@ import yaml
 from datetime import datetime
 from pathlib import Path
 import importlib.util
+import statistics
 
 """
 Todo:
@@ -38,9 +39,9 @@ parser = argparse.ArgumentParser(description = "Program description to put")
 parser.add_argument('-v', '--verbose', action='store_true', help = 'Show detailed verbose output')
 parser.add_argument('-s', '--scenario', required = True, help = 'Select a scenario you want to test')
 parser.add_argument('-t', '--tool', required = True, choices = ['terraform', 'boto3'], help = 'Select a IaC tool you want to use')
-parser.add_argument('-c', '--count', type = int, default = 1, metavar = 'COUNT', help = 'Select a resource count to test')
+parser.add_argument('-c', '--count', type = int, default = 1, metavar = 'COUNT', help = 'Select a resource count to test, Default = 1')
 parser.add_argument('-r', '--runs', type = int, default = None, help = 'Choose the amount of repeat deployment runs to make')
-parser.add_argument('-i', '--interval', type = int, default = 0, help = 'Choose the amount of seconds each interval will take between repeats')
+parser.add_argument('-i', '--interval', type = int, default = 0, help = 'Choose the amount of seconds each interval will take between repeats, Default = 0')
 args = parser.parse_args()
 scenario_name = args.scenario
 tool_name = args.tool
@@ -79,7 +80,15 @@ if 'allowed_counts' not in scenario_config:
     if args.count is not None:
         print("Warning: This scenario does not support a resource count parameter")
 
-
+if args.runs:
+    if args.runs < 1:
+        print("Error: Invalid run amount")
+        exit(1)
+    if args.interval < 1:
+        print("Error: Invalid interval amount")
+        exit(1)
+    if args.count != 1:
+        print("Warning: This interval mode is designed for single resource deployments") #ask about this
 
 print(f"Running selected scenario '{scenario_config['description']}' using '{tool_name}'")
 
@@ -175,6 +184,48 @@ def verify_cleanup_success(destroy_output, expected_resource_count):
     else:
         return (False, f"Error: Destroyed {destroyed_count} resources, expected {expected_resource_count}!")
     
+def run_interval_scenario(scenario_name, tool_type, count, runs, interval):
+    run_results = []
+    run_count = 1
+
+    for i in range(1, runs + 1):
+        print(f"Run number: {run_count}")
+
+        (outputs, apply_time, destroy_time, validation_passed, missing, unexpected, 
+        cleanup_verified, cleanup_message, init_time, total_operation_time) = run_scenario(tool_name, scenario_name, args.count)
+
+        run_entry = {
+            "run_number": run_count,
+            "init_time": init_time,
+            "deploy_time": apply_time,
+            "destroy_time": destroy_time,
+            "total_time": total_operation_time,
+            "validation_passed": validation_passed,
+            "cleanup_verified": cleanup_verified
+        }
+
+        run_count += 1
+
+        run_results.append(run_entry)
+
+        if i < runs + 1:
+            print(f"Interval wait: {interval}")
+            time.sleep(interval)
+
+    if run_results:
+        summary_statistics = {
+            "avg_deploy_time": statistics.mean([run["deploy_time"] for run in run_results]),
+            "avg_destroy_time": statistics.mean([run["destroy_time"] for run in run_results]),
+            "avg_total_time": statistics.mean([run["total_time"] for run in run_results]),
+            "fastest_total_time": min(run_results, key=lambda x: x['total_time'])['total_time'],
+            "slowest_total_time": max(run_results, key=lambda x: x['total_time'])['total_time'],
+            "success_rate": (sum(1 for run in run_results if run["validation_passed"]) / len(run_results)) * 100
+        }
+    else:
+        summary_statistics = {}
+
+    return (run_results, summary_statistics)
+    
 def log_result(scenario, deploy_time, cleanup_time, total_operation_time, extra_info = None):
     timestamp = datetime.now()
 
@@ -200,7 +251,32 @@ def log_result(scenario, deploy_time, cleanup_time, total_operation_time, extra_
     with open(filename, 'w') as file:
         json.dump(result, file, indent = 2)
     
-    return(result, f"Result logged in: {filename}")
+    return (result, f"Result logged in: {filename}")
+
+def log_interval_result(scenario_name, runs, interval, run_results, summary_statistics):
+    timestamp = datetime.now()
+
+    interval_result = {
+        "scenario": scenario_name,
+        "tool": tool_name,
+        "mode": 'interval',
+        "date": timestamp.strftime("%Y-%m-%d"),
+        "time": timestamp.strftime("%H:%M:%S"),
+        "configuration": {
+            "runs": runs,
+            "interval": interval,
+            "count": len(run_results)
+        },
+        "individual_runs": run_results,
+        "summary": summary_statistics
+    }
+
+    Path("Test results").mkdir(exist_ok=True)
+    filename = f"Test results/{scenario_name}_{tool_name}_{runs}_runs_{interval}_{interval}_{interval_result['date']}_{interval_result['time']}.json"
+    with open(filename, 'w') as file:
+        json.dump(interval_result, file, indent = 2)
+
+    return (interval_result, f"Result logged in: {filename}")
 
 def run_tf_scenario(scenario_name, count):
     working_directory = get_working_dir("terraform", scenario_name)
@@ -348,24 +424,24 @@ def run_scenario(tool_name, scenario_name, count):
     else:
         raise ValueError(f"Unknown tool type: {tool_name}")
         
-(outputs, apply_time, destroy_time, validation_passed, missing, unexpected, 
- cleanup_verified, cleanup_message, init_time, total_operation_time) = run_scenario(tool_name, scenario_name, args.count)
-
-log_result(scenario_name, apply_time, destroy_time, {
-    "outputs": outputs,
-    "resource_count": len(outputs),
-    "actual_resource_count": get_resource_count(outputs),
-    "validation_passed": validation_passed,    
-    "missing_outputs": missing,                
-    "unexpected_outputs": unexpected,
-    "cleanup_verified": cleanup_verified,
-    "cleanup_message": cleanup_message,
-    "timing_breakdown": {                 
-        "init_time": init_time,
-        "apply_time": apply_time,
-        "destroy_time": destroy_time,
-        "total_time": init_time + apply_time + destroy_time
-    }
-})
-
-
+if args.runs is not None:
+    results, summary = run_interval_scenario(scenario_name, tool_name, args.count, args.runs, args.interval)
+    log_interval_result(scenario_name, args.runs, args.interval, results, summary)
+else:
+    (outputs, apply_time, destroy_time, validation_passed, missing, unexpected,
+     cleanup_verified, cleanup_message, init_time, total_operation_time) = run_scenario(tool_name, scenario_name, args.count)
+    log_result(scenario_name, apply_time, destroy_time, total_operation_time, {
+        "outputs": outputs,
+        "resource_count": len(outputs),
+        "validation_passed": validation_passed,
+        "missing_outputs": missing,
+        "unexpected_outputs": unexpected,
+        "cleanup_verified": cleanup_verified,
+        "cleanup_message": cleanup_message,
+        "timing_breakdown": {
+            "init_time": init_time,
+            "apply_time": apply_time,
+            "destroy_time": destroy_time,
+            "total_time": total_operation_time
+        }
+    })
