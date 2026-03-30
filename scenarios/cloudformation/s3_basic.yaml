@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: S3 basic bucket benchmarking scenario
+
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      Tags:
+        - Key: Environment
+          Value: test
+        - Key: Purpose
+          Value: benchmarking
+
+Outputs:
+  BucketNames:
+    Value: !Ref S3Bucket
+  BucketCount:
+    Value: "1"
+  BucketRegion:
+    Value: !Ref AWS::Region

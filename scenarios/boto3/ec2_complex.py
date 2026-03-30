@@ -244,10 +244,13 @@ def deploy(resource_count=1):
         
         return None
 
-def destroy(outputs):
+def destroy(outputs, verbose):
     """Clean up multiple EC2 complex resources"""
     if not outputs:
         return False
+    
+    if verbose:
+        print(f"Terminated {len(instance_ids)} instances")
         
     ec2_client = boto3.client('ec2', region_name='eu-central-1')
     

@@ -32,3 +32,6 @@ benchmark.py_old/
 # Results (generated output)
 results/
 Test results/
+graphs/
+analysis/
+benchmark_env/

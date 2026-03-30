@@ -1,0 +1,22 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EC2 basic instance benchmarking scenario
+
+Resources:
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2}}'
+      Tags:
+        - Key: Environment
+          Value: test
+        - Key: Purpose
+          Value: benchmarking
+
+Outputs:
+  InstanceIDs:
+    Value: !Ref EC2Instance
+  InstanceCount:
+    Value: "1"
+  InstancePublicIPs:
+    Value: !GetAtt EC2Instance.PublicIp

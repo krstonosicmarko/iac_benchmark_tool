@@ -82,7 +82,7 @@ def deploy(resource_count=1):
         print(f"Error creating S3 complex resources: {e}")
         return None
 
-def destroy(outputs, verbose = False):
+def destroy(outputs, verbose):
     """Clean up multiple S3 complex resources"""
     if not outputs:
         return False

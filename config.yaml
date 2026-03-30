@@ -6,7 +6,15 @@ scenarios:
       - bucket_names
       - bucket_count
       - bucket_region
-    tools: [terraform, boto3]
+    expected_outputs_cloudformation:
+      - bucket_count
+      - bucket_region
+    tools: [terraform, boto3, cloudformation]
+    cost:
+      model: request_based
+      rate_per_1000_puts_usd: 0.005
+      operations_per_resource: 3       # create + tag + delete
+      free_tier_note: "S3 API calls are within Free Tier for new accounts (2,000 PUT requests/month)"  
 
   s3_complex:
     description: "S3 buckets with versioning and encryption"
@@ -16,7 +24,15 @@ scenarios:
       - bucket_count
       - bucket_region
       - features_enabled
-    tools: [terraform, boto3] 
+    expected_outputs_cloudformation:
+      - bucket_count
+      - bucket_region
+    tools: [terraform, boto3]
+    cost:
+      model: request_based
+      rate_per_1000_puts_usd: 0.005
+      operations_per_resource: 5       # create + tag + versioning + encryption + delete
+      free_tier_note: "S3 API calls are within Free Tier for new accounts (2,000 PUT requests/month)"
   
   ec2_basic:
     description: "EC2 basic instances"
@@ -25,7 +41,14 @@ scenarios:
       - instance_ids
       - instance_count
       - instance_public_ips
-    tools: [terraform, boto3]
+    expected_outputs_cloudformation:
+      - instance_count
+    tools: [terraform, boto3, cloudformation]
+    cost:
+      model: time_based
+      rate_per_resource_per_hour_usd: 0.0104   # t3.micro eu-north-1
+      minimum_billing_seconds: 60
+      free_tier_note: "t3.micro is within Free Tier for new accounts (750 hrs/month)"
 
   ec2_complex:
     description: "EC2 instances with security group"
@@ -36,6 +59,9 @@ scenarios:
       - instance_public_ips
       - security_group_id
       - features_enabled
+    expected_outputs_cloudformation:
+      - instance_count
+      - security_group_id
     tools: [terraform, boto3]
 
   vpc_basic:

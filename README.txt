@@ -9,6 +9,18 @@ Contents:
 The tests are ran and saved locally, using your IaC provider account. You input the desired resource and type of test, and the tool will run a timed deployment test of the provisioning and deprovisioning time.
 After that you can find your results in the results folder. A result contains a text version of the test results in the form of a JSON file.
 
+SUPPORTED TOOLS
+
+Terraform — declarative, cloud-agnostic, HCL syntax. Manages state locally via state files.
+Includes an initialization phase which contributes to total deployment time.
+
+Boto3 — imperative, AWS-native Python SDK. Makes direct API calls with no initialization
+overhead. Requires more implementation code than declarative tools.
+
+AWS CloudFormation — declarative, AWS-native, YAML templates. Resources are provisioned
+server-side by AWS with no local initialization phase. Configuration files are generated
+dynamically at runtime based on the requested resource count. 
+
 2. This program was developed and tested on a Windows machine using WSL2, likely compatible with Linux and macOS with minor adjustments, but not tried or tested. 
 
 The list of dependencies necessary to install this tool is the following:
@@ -97,3 +109,30 @@ For example, with the Free Tier subscription, it is possible to provision up to 
 Similar restrictions are set to all scalable resources, but are not strict AWS Free Tier limitations. You are allowed to configure custom amounts, but I do not guarantee
 a problem free experience and it falls beyond this projects scope. Thus following the limitations set inside this tool need to be followed if you are using a 
 Free Tier subscription for a problem free testing. 
+
+RESULTS ANALYSIS
+
+After collecting test results, analysis.py can be used to generate graphs from your results.
+
+Before running analysis.py, manually copy the result files you want to analyse into the appropriate folder:
+- Analysis/basic_mode/ — for standard single deployment results
+- Analysis/interval_mode/ — for interval mode results
+
+Note: analysis.py is a plotting tool, not a data management tool. It does not automatically select or filter results. The user is responsible for placing only the desired result files in the Analysis folder before running. This is a known limitation and intentional design decision — automated result management is possible but out of scope for this project.
+
+Run analysis.py with the following command:
+python3 analysis.py -m basic_mode
+python3 analysis.py -m interval_mode
+
+Flags:
+'-m' or '--mode' -> Select the mode of results to analyse (basic_mode or interval_mode)
+
+basic_mode produces three graphs:
+- Tool comparison — average total time per scenario grouped by tool
+- Scaling efficiency — total time vs resource count per tool and scenario
+- Terraform complexity overhead — init time vs deploy time for basic and complex scenarios
+
+interval_mode produces one graph:
+- Interval timings analysis — average total time per scenario/tool with fastest/slowest range shown as error bars
+
+All graphs are saved to the graphs/ folder with a timestamp in the filename.
